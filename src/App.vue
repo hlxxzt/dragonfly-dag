@@ -1,222 +1,161 @@
-<template>
-  <div>
-    <a-space>
-      <a-button @click="addNode">添加节点</a-button>
-      <a-button @click="addZone">添加区域</a-button>
-      <a-button @click="autoLayout">自动布局</a-button>
-    </a-space>
-  </div>
-  <span id="debt"></span>
-  <div style="width: 800px; height: 600px; margin-left: 100px; margin-top: 100px; border:solid 1px #f00;">
-    <dragonfly-selection-provider v-model:selection="dataSet.selection">
-      <dragonfly-canvas
-          ref="canvas"
-          v-model:canvas-dragging="config.canvasDragging"
-          v-model:canvas-wheeling="config.canvasWheeling"
-          :positions="dataSet.positions"
-          :node-dragging="config.nodeDragging"
-          v-model:edges-data="dataSet.edges"
-          v-model:nodes-data="dataSet.nodes"
-          v-model:zones-data="dataSet.zones"
-          v-model:zoom-scale="config.zoomScale"
-          v-model:endpoint-dragging="config.endpointDragging"
-          :arrow-position="config.arrowPosition"
-          :arrow-zoom-ratio="config.arrowZoomRatio"
-          :before-add-edge-hook="onAddingEdge"
-          :endpoint-group="{linkIn: false, linkOut: true}"
-          :layout-config="config.layout"
-          :line-shape="config.lineShape"
-          :max-zoom-scale="config.maxZoomScale"
-          :min-zoom-scale="config.minZoomScale"
-          :node-group="{linkIn: true, linkOut: true}"
-          :show-arrow="config.showArrow"
-          :show-edge-labels="config.showEdgeLabels"
-          :grid-shape="config.gridShape"
-          :grid-size="config.gridSize"
-          :max-grid-scale="config.maxGridScale"
-          :min-grid-scale="config.minGridScale"
-          show-grid
-          show-minimap
-          show-scale
-          auto-layout
-          @dblclick.stop.prevent="onDblClick"
-          @node:selected="onNodeSelected"
-      >
-        <template #nodeRenderer="{node}">
-          <div class="node">Hi, {{ node.id }}</div>
-        </template>
-        <template #topEndpoints="{node}">
-          <dragonfly-endpoint :endpoint="{id:`${node.id}-input`}" :group="{linkIn: true, linkOut: false}"/>
-        </template>
-        <template #bottomEndpoints="{node}">
-          <dragonfly-endpoint :endpoint="{id:`${node.id}-succeeded`}" class="succeeded-endpoint"/>
-          <dragonfly-endpoint :endpoint="{id:`${node.id}-failed`}" class="failed-endpoint"/>
-        </template>
-        <template #edgeLabelRenderer="{edge}">
-          <div :class="`edge-label-${edge.label}`">{{ edge.label }}</div>
-        </template>
-      </dragonfly-canvas>
-    </dragonfly-selection-provider>
-  </div>
-  <canvas-config
-      v-model:arrow-position="config.arrowPosition"
-      v-model:arrowZoomRatio="config.arrowZoomRatio"
-      v-model:canvas-dragging="config.canvasDragging"
-      v-model:canvas-wheeling="config.canvasWheeling"
-      v-model:max-zoom-scale="config.maxZoomScale"
-      v-model:min-zoom-scale="config.minZoomScale"
-      v-model:node-dragging="config.nodeDragging"
-      v-model:show-arrow="config.showArrow"
-      v-model:show-edge-labels="config.showEdgeLabels"
-      v-model:zoom-scale="config.zoomScale"
-  />
-  <canvas-data v-bind="dataSet"/>
-</template>
-
 <script setup>
-import { getCurrentInstance, nextTick, reactive, shallowRef } from "vue";
-import { DotGrid, DragonflyCanvas, DragonflyEndpoint, StraightLine, } from '../build'
-import CanvasConfig from './CanvasConfig.vue';
+import {getCurrentInstance, reactive} from "vue";
 import CanvasData from './CanvasData.vue';
 import './components/dragonfly-dag.less'
-import DragonflySelectionProvider from "./components/DragonflySelectionProvider.vue";
+import DragonflyCanvas from "./components/DragonflyCanvas.vue";
 
 const current = getCurrentInstance()
 
 const config = reactive({
-  zoomScale: 1,
-  minZoomScale: 0.1,
-  maxZoomScale: 5,
-  zoomSensitivity: 0.001,
-  layout: {
-    rankdir: 'TB',
-    marginx: 40,
-    marginy: 40,
-  },
-  showArrow: false,
-  arrowZoomRatio: 1,
-  arrowPosition: 100,
-  canvasDragging: 'select',
-  nodeDragging: 'move',
-  canvasWheeling: 'zoom',
-  endpointDragging: 'on',
-  lineShape: shallowRef(StraightLine),
-  showEdgeLabels: false,
-  gridSize: 20,
-  maxGridScale: 2,
-  minGridScale: 0.5,
-  gridShape: shallowRef(DotGrid)
+	zoomScale: 1,
+	minZoomScale: 1,
+	maxZoomScale: 5,
+	canvasDragging: 'select',
+	showEdgeLabels: true,
+	showGrid: true,
+	gridSize: 20,
+	maxGridScale: 2,
+	minGridScale: 0.5
 })
 
 const dataSet = reactive({
-  nodes: [ { id: 's1', status: 'queueing' }, { id: 's2', status: 'queueing' } ],
-  edges: [],
-  zones: [],
-  positions: {},
-  selection: []
+	nodes: [{id: 's1', status: 'queueing'}, {id: 's2', status: 'queueing'}],
+	edges: [],
+	positions: {},
+	selection: []
 })
 
 const addNode = () => {
-  // DON'T DO THIS
-  // dataSet.nodes.push({ id: `${feed}` })
-
-  // DO THIS
-  dataSet.nodes = [ ...dataSet.nodes, { id: `${feed}` } ]
-  feed++
-}
-const addZone = () => {
-  dataSet.zones.push({ id: `${feed}` })
-  feed++
+	dataSet.nodes = [...dataSet.nodes, {id: `${feed}`}]
+	feed++
 }
 
-
-const onAddingEdge = async ({ source, target, sourceEndpoint, targetEndpoint }) => new Promise(resolve => {
-  setTimeout(() => {
-    resolve({
-      id: `${sourceEndpoint ?? source}-${targetEndpoint ?? target}`,
-      source,
-      target,
-      sourceEndpoint,
-      targetEndpoint,
-      label: (sourceEndpoint ?? source).split('-')[1]
-    }) // 用自定义数据连接
-    // resolve(false)   // 取消连接
-    // resolve(undefined)  // 用默数据连接
-  }, 100)
+const onAddingEdge = async ({source, target, sourceEndpoint, targetEndpoint}) => new Promise(resolve => {
+	setTimeout(() => {
+		resolve({
+			id: `${sourceEndpoint ?? source}-${targetEndpoint ?? target}`,
+			source,
+			target,
+			sourceEndpoint,
+			targetEndpoint,
+			label: (sourceEndpoint ?? source).split('-')[1]
+		}) // 用自定义数据连接
+		// resolve(false)   // 取消连接
+		// resolve(undefined)  // 用默数据连接
+	}, 100)
 })
 
-const autoLayout = () => current.refs.canvas.resetLayout({})
-
 const onDblClick = event => {
-  const axis = current.refs.canvas.translateMouseEvent({ event: event })
-  if (axis) {
-    dataSet.nodes = [ ...dataSet.nodes, { id: 's3' } ]
-    nextTick(() => dataSet.positions['s3'] = { ...dataSet.positions['s3'], ...axis })
-  }
+	const axis = current.refs.canvas.translateMouseEvent({event: event})
+	if (axis) {
+		//dataSet.nodes = [...dataSet.nodes, {id: 's3'}]
+		//nextTick(() => dataSet.positions['s3'] = {...dataSet.positions['s3'], ...axis})
+	}
 };
 
 const onNodeSelected = event => {
-  console.log(event)
-}
-const onNodeAdded = event => {
-  console.log(event)
+	console.log(event)
 }
 </script>
+
+<template>
+	<div>
+		<a-space>
+			<a-button @click="addNode">添加节点</a-button>
+			画布拖拽行为
+			<a-radio-group :value="config.canvasDragging" size="small" @change="config.canvasDragging = $event.target.value">
+				<a-radio-button value="off">锁定</a-radio-button>
+				<a-radio-button value="select">框选</a-radio-button>
+				<a-radio-button value="scroll">滚动</a-radio-button>
+			</a-radio-group>
+		</a-space>
+	</div>
+	<span id="debt"></span>
+	<div style="width: calc(100% - 300px); height: calc(100% - 43px); margin-top: 10px; background: #ccc">
+		<dragonfly-canvas ref="canvas"
+			v-model:edges-data="dataSet.edges"
+			v-model:nodes-data="dataSet.nodes"
+			v-model:selection="dataSet.selection"
+			v-model:zoom-scale="config.zoomScale"
+			:positions="dataSet.positions"
+			
+			:canvas-dragging="config.canvasDragging"
+			:max-zoom-scale="config.maxZoomScale"
+			:min-zoom-scale="config.minZoomScale"
+			:show-edge-labels="config.showEdgeLabels"
+			:grid-size="config.gridSize"
+			:max-grid-scale="config.maxGridScale"
+			:min-grid-scale="config.minGridScale"
+			:show-grid="config.showGrid"
+			
+			:before-add-edge-hook="onAddingEdge"
+			@dblclick.stop.prevent="onDblClick"
+			@node:selected="onNodeSelected"
+		>
+			<template #default="{node}">
+				<div class="node">Hi, {{ node.id }}</div>
+			</template>
+		</dragonfly-canvas>
+	</div>
+	<canvas-data v-bind="dataSet"/>
+</template>
+
 
 <script>
 let feed = 1
 </script>
+
 <style lang="less">
 .node {
-  padding: 1em;
-  background-color: #9cdfff;
+	padding: 1em;
+	background-color: #9cdfff;
 }
 
 .succeeded-label {
-  background-color: #e6ffe6;
-  border-radius: 4px;
-  color: #bbb;
-  line-height: 1em;
-  padding: 2px 2px;
-  left: 10px;
-  top: -15px;
+	background-color: #e6ffe6;
+	border-radius: 4px;
+	color: #bbb;
+	line-height: 1em;
+	padding: 2px 2px;
+	left: 10px;
+	top: -15px;
 }
 
 .failed-label {
-  background-color: #ffe6e6;
-  border-radius: 4px;
-  color: #bbb;
-  line-height: 1em;
-  padding: 2px 2px;
-  left: 10px;
-  top: 5px;
+	background-color: #ffe6e6;
+	border-radius: 4px;
+	color: #bbb;
+	line-height: 1em;
+	padding: 2px 2px;
+	left: 10px;
+	top: 5px;
 }
 
 .succeeded-endpoint {
-  border-color: #7acc7a !important;
+	border-color: #7acc7a !important;
 }
 
 .failed-endpoint {
-  border-color: #cc7a7a !important;
+	border-color: #cc7a7a !important;
 }
 
 .edge-label-succeeded {
-  position: relative;
-  top: -1em;
-  background-color: #7acc7a;
-  border-radius: 4px;
-  color: #fff;
-  line-height: 1em;
-  padding: 2px 2px;
+	position: relative;
+	top: -1em;
+	background-color: #7acc7a;
+	border-radius: 4px;
+	color: #fff;
+	line-height: 1em;
+	padding: 2px 2px;
 }
 
 .edge-label-failed {
-  position: relative;
-  top: -1em;
-  background-color: #cc7a7a;
-  border-radius: 4px;
-  color: #fff;
-  line-height: 1em;
-  padding: 2px 2px;
+	position: relative;
+	top: -1em;
+	background-color: #cc7a7a;
+	border-radius: 4px;
+	color: #fff;
+	line-height: 1em;
+	padding: 2px 2px;
 }
 </style>

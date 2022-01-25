@@ -1,13 +1,6 @@
 <template>
     <div class="dragonfly-endpoints" :class="orientation">
-        <template v-if="endpoints">
-            <dragonfly-endpoint
-                v-for="endpoint in endpoints"
-                :key="endpoint.key"
-                :endpoint="endpoint"
-            />
-        </template>
-        <slot v-else/>
+	    <dragonfly-endpoint :endpoint="{ id:`${ id }-${ orientation }` }" class="succeeded-endpoint"/>
     </div>
 </template>
 
@@ -24,7 +17,7 @@ const orientationVectors = {
 export default {
     name: "DragonflyEndpoints",
     components: {DragonflyEndpoint},
-    props: ['endpoints', 'orientation'],
+    props: ['id','orientation'],
     provide() {
         return {
             getPosition: this.getPosition,
@@ -36,11 +29,14 @@ export default {
             const width = this.$el.parentNode.clientWidth
             const height = this.$el.parentNode.clientHeight
             const vector = orientationVectors[this.orientation]
-            return {
-                left: width * vector[0],
-                top: height * vector[1],
-            }
+            return { left: width * vector[0], top: height * vector[1] }
         }
     }
 }
 </script>
+
+<style lang="less" scoped>
+.succeeded-endpoint {
+	border-color: #7acc7a !important;
+}
+</style>
